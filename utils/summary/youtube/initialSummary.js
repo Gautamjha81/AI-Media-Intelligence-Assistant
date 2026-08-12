@@ -5,6 +5,7 @@ const { ChatOpenAI } = require("@langchain/openai");
 const llm = new ChatOpenAI({
   model: "gpt-5.5",
   apiKey: process.env.OPENAI_API_KEY,
+  maxTokens: 200,
 });
 exports.initialSummary = async (chunks) => {
   const summary = [];
@@ -13,7 +14,7 @@ exports.initialSummary = async (chunks) => {
       {
         role: "system",
         content:
-          "Summarize this portion of a meeting transcript concisely. Focus on the key points, decisions, and important information.",
+          "Summarize this portion of a meeting transcript in 3-5 short bullet points (max ~60 words total). Only include key points, decisions, and important information - skip minor details and filler.",
       },
       {
         role: "user",

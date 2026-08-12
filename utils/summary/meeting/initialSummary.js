@@ -5,25 +5,26 @@ const { ChatOpenAI } = require("@langchain/openai");
 const llm = new ChatOpenAI({
   model: "gpt-5.5",
   apiKey: process.env.OPENAI_API_KEY,
+  maxTokens: 450,
 });
-exports.initialSummary = async (chunks) => {
-  const summary = [];
-  for (const chunk of chunks) {
+exports.finalSummary = async (initialSummary) => {
+ 
     const aiMsg = await llm.invoke([
       {
         role: "system",
-        content: `
-Extract the key information from this meeting transcript chunk:
-discussion points, decisions, action items, owners, deadlines,
-and unresolved questions. Do not invent information.
+        content:`
+Create a concise meeting summary from these partial summaries, organized
+under three short headers: Key Decisions, Action Items (include owner and
+deadline if mentioned), and Open Questions. Keep it tight - 10-15 bullets
+total maximum across all sections, one line each. Remove repetition by
+merging overlapping points from different chunks. Do not invent information.
 `,
       },
       {
         role: "user",
-        content: chunk,
+        content: initialSummary,
       },
     ]);
-    summary.push(aiMsg.content);
-  }
-  return summary.join(" ");
+   
+  return aiMsg.content;
 };

@@ -19,7 +19,7 @@ exports.downloadYoutubeAudio = async (url) => {
     );
 
     const options = {
-        format: "bestaudio",
+        format: "bestaudio/best",
         output: outputPath,
         noPlaylist: true,
 

@@ -1,38 +1,45 @@
 #!/bin/bash
 set -e
 
-# yt-dlp requires Python 3.10+.
-# Keep Amazon Linux's system Python untouched.
-
-echo "Installing Python 3.11..."
+echo "===== PYTHON CHECK ====="
 
 if command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y python3.11
+    dnf install -y python3.11 python3.11-pip
 elif command -v yum >/dev/null 2>&1; then
-    sudo yum install -y python3.11
+    yum install -y python3.11 python3.11-pip
 else
-    echo "Neither dnf nor yum found - cannot install python3.11" >&2
+    echo "ERROR: dnf/yum not found"
     exit 1
 fi
 
-# Make Python 3.11 available as python3
-sudo ln -sf "$(command -v python3.11)" /usr/local/bin/python3
+echo "python3.11 location:"
+command -v python3.11
 
-echo "Python version:"
-python3 --version
+echo "python3.11 version:"
+python3.11 --version
 
-echo "Installing Deno..."
+echo "pip version:"
+python3.11 -m pip --version
 
-curl -fsSL https://deno.land/install.sh | sh
+echo "===== YT-DLP INSTALL ====="
 
-# Make Deno available system-wide
-sudo ln -sf /root/.deno/bin/deno /usr/local/bin/deno
+python3.11 -m pip install --upgrade pip
+python3.11 -m pip install --upgrade "yt-dlp[default]"
+
+echo "yt-dlp location:"
+python3.11 -m pip show yt-dlp
+
+echo "yt-dlp version:"
+python3.11 -m yt_dlp --version
+
+echo "===== DENO INSTALL ====="
+
+curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh
+
+echo "Deno location:"
+command -v deno || true
 
 echo "Deno version:"
-deno --version
+/usr/local/bin/deno --version
 
-echo "Installing yt-dlp-ejs..."
-
-python3.11 -m pip install -U yt-dlp-ejs
-
-echo "Installation complete."
+echo "===== INSTALLATION SUCCESS ====="

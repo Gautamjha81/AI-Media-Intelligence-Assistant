@@ -13,7 +13,8 @@ const { transcribe } = require("./utils/youtubeExtraction/transcribe");
 const { textSummary } = require("./utils/summary/textSummary");
 const { ragFunction } = require("./utils/ragPipeline/ragFunction");
 const { chatBot } = require("./chat");
-
+const extractDocument = require("./utils/documentExtraction/extractDocument");
+const { simpleChat } = require("./utils/simpleChat/simpleChat");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,10 +23,10 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-
 const sessions = new Map();
 const SESSION_TTL_MS = 10 * 60 * 1000;
 
+const simpleChatSessions = new Map();
 
 const uploadDir = path.join(__dirname, "utils", "uploads");
 if (!fs.existsSync(uploadDir)) {
@@ -33,6 +34,7 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 const ALLOWED_AUDIO_EXT = [".mp3", ".wav", ".m4a", ".webm", ".ogg", ".mp4", ".flac"];
+const ALLOWED_DOCUMENT_EXT = [".pdf", ".docx", ".txt"];
 
 const ALLOWED_LANGUAGES = ["english", "hindi"];
 
@@ -44,7 +46,7 @@ const upload = multer({
       cb(null, unique);
     },
   }),
-  limits: { fileSize: 200 * 1024 * 1024 }, // 200MB
+  limits: { fileSize: 200 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     if (!ALLOWED_AUDIO_EXT.includes(ext)) {
@@ -54,6 +56,23 @@ const upload = multer({
   },
 });
 
+const uploadDocument = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) => {
+      const unique = `${Date.now()}-${crypto.randomUUID()}${path.extname(file.originalname) || ""}`;
+      cb(null, unique);
+    },
+  }),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!ALLOWED_DOCUMENT_EXT.includes(ext)) {
+      return cb(new Error("Unsupported document file type."));
+    }
+    cb(null, true);
+  },
+});
 
 function cleanupUploadArtifacts(originalPath) {
   try {
@@ -65,7 +84,6 @@ function cleanupUploadArtifacts(originalPath) {
         try {
           fs.unlinkSync(path.join(dir, f));
         } catch (e) {
-          // best-effort cleanup
         }
       });
   } catch (err) {
@@ -91,7 +109,6 @@ function resolveLanguage(input) {
   return ALLOWED_LANGUAGES.includes(lang) ? lang : "english";
 }
 
-
 app.post("/api/process", async (req, res) => {
   const { youtubeUrl, language } = req.body || {};
 
@@ -110,10 +127,9 @@ app.post("/api/process", async (req, res) => {
     }
 
     const texts = results.map((result) => result.text).join(" ");
-    const textFrom = "youtube"; // external meeting audio
+    const textFrom = "youtube";
 
     const summary = await textSummary(texts, textFrom);
-  
 
     const videoId = getVideoIdFromUrl(youtubeUrl);
     const vectorStore = await ragFunction(texts, videoId);
@@ -142,7 +158,6 @@ app.post("/api/process", async (req, res) => {
   }
 });
 
-
 app.post("/api/process-audio", upload.single("audio"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "An audio file is required (field name: audio)." });
@@ -162,10 +177,9 @@ app.post("/api/process-audio", upload.single("audio"), async (req, res) => {
     }
 
     const texts = results.map((result) => result.text).join(" ");
-    const textFrom = "meeting"; // external meeting audio
+    const textFrom = "meeting";
 
     const summary = await textSummary(texts, textFrom);
-    // summary goes to the UI/frontend for display
 
     const audioId = path.parse(req.file.filename).name;
     const vectorStore = await ragFunction(texts, audioId);
@@ -195,7 +209,49 @@ app.post("/api/process-audio", upload.single("audio"), async (req, res) => {
   }
 });
 
-// Ask a question about an already-processed video using the RAG pipeline + chatBot.
+app.post("/api/process-document", uploadDocument.single("document"), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: "A document file is required (field name: document)." });
+  }
+
+  const uploadedPath = req.file.path;
+
+  try {
+    const { pages, fullText } = await extractDocument(uploadedPath);
+
+    const textFrom = "document";
+    const summary = await textSummary(fullText, textFrom);
+
+    const documentId = path.parse(req.file.filename).name;
+    const vectorStore = await ragFunction(fullText, documentId);
+
+    sessions.set(documentId, {
+      vectorStore,
+      texts: fullText,
+      summary,
+      pages,
+      createdAt: Date.now(),
+    });
+
+    setTimeout(() => sessions.delete(documentId), SESSION_TTL_MS);
+
+    return res.json({
+      videoId: documentId,
+      summary,
+      pageCount: pages.length,
+      pages,
+    });
+  } catch (error) {
+    console.error("Error processing uploaded document:", error);
+    return res.status(500).json({
+      error: "Failed to process document",
+      details: error.message,
+    });
+  } finally {
+    cleanupUploadArtifacts(uploadedPath);
+  }
+});
+
 app.post("/api/chat", async (req, res) => {
   const { videoId, question } = req.body || {};
 
@@ -224,13 +280,39 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
+app.post("/api/simple-chat", async (req, res) => {
+  const { sessionId, message } = req.body || {};
+
+  if (!message) {
+    return res.status(400).json({ error: "message is required" });
+  }
+
+  const id = sessionId || crypto.randomUUID();
+  const history = simpleChatSessions.get(id) || [];
+
+  try {
+    const answer = await simpleChat(history, String(message));
+
+    history.push({ role: "user", content: String(message) });
+    history.push({ role: "assistant", content: String(answer) });
+    simpleChatSessions.set(id, history.slice(-20));
+
+    return res.json({ sessionId: id, answer });
+  } catch (error) {
+    console.error("Error in simple chat:", error);
+    return res.status(500).json({
+      error: "Failed to generate answer",
+      details: error.message,
+    });
+  }
+});
+
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-
 app.use((err, req, res, next) => {
-  if (err instanceof multer.MulterError || err.message === "Unsupported audio file type.") {
+  if (err instanceof multer.MulterError || err.message === "Unsupported audio file type." || err.message === "Unsupported document file type.") {
     return res.status(400).json({ error: err.message });
   }
   console.error("Unhandled error:", err);

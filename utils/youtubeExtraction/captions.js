@@ -1,7 +1,15 @@
 const { getSubtitles } = require("youtube-caption-extractor");
+const { ProxyAgent, fetch: undiciFetch } = require("undici");
 
-// Extracts the 11-char YouTube video ID from any common URL shape:
-// watch?v=, youtu.be/, /shorts/, /live/, /embed/
+const PROXY_URL = process.env.YOUTUBE_PROXY_URL;
+
+let proxiedFetch;
+if (PROXY_URL) {
+    const dispatcher = new ProxyAgent(PROXY_URL);
+    console.log("YOUTUBE_PROXY_URL is set - routing caption requests through proxy");
+    proxiedFetch = (input, init = {}) => undiciFetch(input, { ...init, dispatcher });
+}
+
 function extractVideoId(url) {
     try {
         const parsed = new URL(url);
@@ -20,21 +28,48 @@ function extractVideoId(url) {
     }
 }
 
-// Maps our app's "english" / "hindi" language selector to caption
-// language codes to try, in priority order. Hindi falls back to
-// English captions if no Hindi track exists (still useful signal,
-// same as how Whisper "translations" would produce English text).
 const LANG_PREFERENCE = {
     hindi: ["hi", "en"],
     english: ["en"],
 };
 
-/**
- * Attempts to fetch existing captions for a YouTube video.
- * Returns the joined caption text, or null if no usable captions exist.
- * Throws only on unexpected/network-level errors - "no captions found"
- * is treated as a normal null return so callers can fall back cleanly.
- */
+const PERMANENT_ERROR_PATTERN =
+    /video unavailable|private video|removed|deleted|does not exist|no caption/i;
+
+const MAX_ATTEMPTS = 3;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function fetchSubtitlesWithRetry(videoID, lang) {
+    let lastError;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+            return await getSubtitles({
+                videoID,
+                lang,
+                ...(proxiedFetch ? { fetch: proxiedFetch } : {}),
+            });
+        } catch (err) {
+            lastError = err;
+            const message = err?.message || String(err);
+
+            if (PERMANENT_ERROR_PATTERN.test(message)) {
+                throw err;
+            }
+
+            if (attempt < MAX_ATTEMPTS) {
+                const backoffMs = 500 * attempt;
+                console.warn(
+                    `Caption fetch attempt ${attempt}/${MAX_ATTEMPTS} failed for ${videoID} (lang=${lang}): ${message} - retrying in ${backoffMs}ms`
+                );
+                await sleep(backoffMs);
+            }
+        }
+    }
+
+    throw lastError;
+}
+
 exports.getYoutubeCaptions = async (url, language = "english") => {
     const videoID = extractVideoId(url);
     if (!videoID) {
@@ -46,7 +81,7 @@ exports.getYoutubeCaptions = async (url, language = "english") => {
 
     for (const lang of langsToTry) {
         try {
-            const subtitles = await getSubtitles({ videoID, lang });
+            const subtitles = await fetchSubtitlesWithRetry(videoID, lang);
 
             if (subtitles && subtitles.length > 0) {
                 const text = subtitles
@@ -63,8 +98,6 @@ exports.getYoutubeCaptions = async (url, language = "english") => {
                 }
             }
         } catch (err) {
-            // No captions in this language (or none at all) - try the
-            // next language in the list, or fall back to audio download.
             console.warn(
                 `No captions for ${videoID} (lang=${lang}): ${err.message}`
             );

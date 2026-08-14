@@ -1,4 +1,6 @@
 node_modules/
+bin/
+utils/uploads/*
+!utils/uploads/.gitkeep
 .env
-uploads/
-config/cookies.set
+

@@ -15,16 +15,203 @@
 
 <main class="page">
 
-  <header class="hero">
-    <h1 class="hero-title">Feed it a link.<br>Pull the memory back out.</h1>
-    <p class="hero-sub" id="hero-sub">Drop in a YouTube URL. It's pulled apart into audio, spoken into text, boiled down to a summary, and indexed so you can ask it questions directly.</p>
+  <section id="view-home" class="view">
+    <header class="hero">
+      <p class="eyebrow">CHOOSE A TOOL</p>
+      <h1 class="hero-title">Feed it something.<br>Pull the memory back out.</h1>
+      <p class="hero-sub">Pick a feature below. Everything is transcribed or extracted, boiled down to a summary, and indexed so you can ask it questions directly.</p>
+    </header>
 
-    <div class="mode-tabs" role="tablist" aria-label="Source type">
-      <button type="button" class="mode-tab active" id="tab-youtube" role="tab" aria-selected="true">YouTube link</button>
-      <button type="button" class="mode-tab" id="tab-audio" role="tab" aria-selected="false">Upload audio</button>
+    <div class="home-grid">
+      <button type="button" class="feature-card" data-view="audio">
+        <span class="feature-glyph">●</span>
+        <span class="feature-title">Meeting audio</span>
+        <span class="feature-desc">Upload a recording. Get a summary and chat about what was said.</span>
+      </button>
+
+      <button type="button" class="feature-card" data-view="document">
+        <span class="feature-glyph">▤</span>
+        <span class="feature-title">Personal document</span>
+        <span class="feature-desc">Upload a PDF, Word doc, or text file. Get a summary, browse the full content, and chat about it.</span>
+      </button>
+
+      <button type="button" class="feature-card" data-view="youtube">
+        <span class="feature-glyph">▶</span>
+        <span class="feature-title">YouTube link</span>
+        <span class="feature-desc">Paste a link. Get a summary and chat about the video.</span>
+      </button>
+
+      <button type="button" class="feature-card" data-view="chatbot">
+        <span class="feature-glyph">&gt;</span>
+        <span class="feature-title">Just chat</span>
+        <span class="feature-desc">Talk directly with the AI — no upload needed.</span>
+      </button>
     </div>
+  </section>
 
-    <form id="process-form" class="deck" autocomplete="off">
+  <section id="view-audio" class="view" hidden>
+    <button type="button" class="back-link" data-back>&larr; Back</button>
+    <header class="hero">
+      <h1 class="hero-title">Meeting audio</h1>
+      <p class="hero-sub">Upload a recording — a meeting, a call, a lecture. It's transcribed, boiled down into highlights and action items, and indexed so you can ask it questions directly.</p>
+    </header>
+
+    <form id="audio-form" class="deck" autocomplete="off">
+      <label for="audio-file" class="visually-hidden">Audio file</label>
+      <div class="deck-slot file-slot" id="audio-file-slot">
+        <span class="deck-icon" aria-hidden="true">●</span>
+        <input
+          id="audio-file"
+          name="audio"
+          type="file"
+          accept=".mp3,.wav,.m4a,.webm,.ogg,.mp4,.flac,audio/*"
+          required
+        />
+        <span class="file-name" id="audio-file-name">No file chosen — meeting, call, or any recording</span>
+      </div>
+      <label for="audio-language" class="visually-hidden">Spoken language</label>
+      <select id="audio-language" name="language" class="lang-select">
+        <option value="english">English</option>
+        <option value="hindi">Hindi &rarr; translate to English</option>
+      </select>
+      <button type="submit" id="audio-analyze-btn" class="btn-primary">
+        <span class="btn-label">Analyze</span>
+      </button>
+    </form>
+
+    <p id="audio-form-error" class="form-error" role="alert" hidden></p>
+
+    <section id="audio-pipeline" class="pipeline" hidden aria-label="Processing status">
+      <div class="pipeline-track">
+        <div class="pipeline-fill" id="audio-pipeline-fill"></div>
+        <ol class="pipeline-stops" id="audio-pipeline-stops">
+          <li class="stop" data-stop="fetch"><span class="stop-dot"></span><span class="stop-label"><span class="stop-main">Upload</span><br><span class="stop-sub">reading file</span></span></li>
+          <li class="stop" data-stop="convert"><span class="stop-dot"></span><span class="stop-label">Convert<br><span class="stop-sub">16kHz mono</span></span></li>
+          <li class="stop" data-stop="transcribe"><span class="stop-dot"></span><span class="stop-label">Transcribe<br><span class="stop-sub">speech to text</span></span></li>
+          <li class="stop" data-stop="summarize"><span class="stop-dot"></span><span class="stop-label">Summarize<br><span class="stop-sub">highlights</span></span></li>
+          <li class="stop" data-stop="index"><span class="stop-dot"></span><span class="stop-label">Index<br><span class="stop-sub">ready for Q&amp;A</span></span></li>
+        </ol>
+      </div>
+      <div class="waveform" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <p class="pipeline-status" id="audio-pipeline-status">Uploading &amp; reading audio&hellip;</p>
+    </section>
+
+    <section id="audio-summary-panel" class="panel summary-panel" hidden aria-label="Summary">
+      <div class="panel-head">
+        <span class="panel-tag">SUMMARY</span>
+        <span class="panel-meta" id="audio-id-tag"></span>
+      </div>
+      <div class="summary-body" id="audio-summary-body"></div>
+    </section>
+
+    <section id="audio-chat-panel" class="panel chat-panel" hidden aria-label="Ask about the audio">
+      <div class="panel-head">
+        <span class="panel-tag">CONSOLE</span>
+        <span class="panel-meta">ask the transcript</span>
+      </div>
+      <div class="chat-log" id="audio-chat-log">
+        <p class="chat-hint" id="audio-chat-hint">Ask something about the recording.</p>
+      </div>
+      <form id="audio-chat-form" class="chat-input-row" autocomplete="off">
+        <span class="prompt-glyph" aria-hidden="true">&gt;</span>
+        <label for="audio-chat-question" class="visually-hidden">Your question</label>
+        <input id="audio-chat-question" type="text" placeholder="What was decided in this meeting?" required />
+        <button type="submit" class="btn-ghost">Ask</button>
+      </form>
+    </section>
+  </section>
+
+  <section id="view-document" class="view" hidden>
+    <button type="button" class="back-link" data-back>&larr; Back</button>
+    <header class="hero">
+      <h1 class="hero-title">Personal document</h1>
+      <p class="hero-sub">Upload a PDF, Word document, or text file. It's summarized and indexed so you can ask it questions, and you can browse the full extracted content page by page.</p>
+    </header>
+
+    <form id="document-form" class="deck" autocomplete="off">
+      <label for="document-file" class="visually-hidden">Document file</label>
+      <div class="deck-slot file-slot" id="document-file-slot">
+        <span class="deck-icon" aria-hidden="true">▤</span>
+        <input
+          id="document-file"
+          name="document"
+          type="file"
+          accept=".pdf,.docx,.txt"
+          required
+        />
+        <span class="file-name" id="document-file-name">No file chosen — PDF, DOCX, or TXT</span>
+      </div>
+      <button type="submit" id="document-analyze-btn" class="btn-primary">
+        <span class="btn-label">Analyze</span>
+      </button>
+    </form>
+
+    <p id="document-form-error" class="form-error" role="alert" hidden></p>
+
+    <section id="document-pipeline" class="pipeline" hidden aria-label="Processing status">
+      <div class="pipeline-track">
+        <div class="pipeline-fill" id="document-pipeline-fill"></div>
+        <ol class="pipeline-stops" id="document-pipeline-stops">
+          <li class="stop" data-stop="fetch"><span class="stop-dot"></span><span class="stop-label"><span class="stop-main">Upload</span><br><span class="stop-sub">reading file</span></span></li>
+          <li class="stop" data-stop="convert"><span class="stop-dot"></span><span class="stop-label">Extract<br><span class="stop-sub">reading pages</span></span></li>
+          <li class="stop" data-stop="transcribe"><span class="stop-dot"></span><span class="stop-label">Structure<br><span class="stop-sub">page by page</span></span></li>
+          <li class="stop" data-stop="summarize"><span class="stop-dot"></span><span class="stop-label">Summarize<br><span class="stop-sub">key points</span></span></li>
+          <li class="stop" data-stop="index"><span class="stop-dot"></span><span class="stop-label">Index<br><span class="stop-sub">ready for Q&amp;A</span></span></li>
+        </ol>
+      </div>
+      <div class="waveform" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <p class="pipeline-status" id="document-pipeline-status">Uploading &amp; reading document&hellip;</p>
+    </section>
+
+    <section id="document-summary-panel" class="panel summary-panel" hidden aria-label="Summary">
+      <div class="panel-head">
+        <span class="panel-tag">SUMMARY</span>
+        <span class="panel-meta" id="document-id-tag"></span>
+      </div>
+      <div class="summary-body" id="document-summary-body"></div>
+    </section>
+
+    <section id="document-content-panel" class="panel content-panel" hidden aria-label="Full content">
+      <button type="button" class="panel-head content-toggle" id="document-content-toggle">
+        <span class="panel-tag">FULL CONTENT</span>
+        <span class="panel-meta" id="document-page-count"></span>
+      </button>
+      <div class="page-list" id="document-page-list" hidden></div>
+    </section>
+
+    <section id="document-chat-panel" class="panel chat-panel" hidden aria-label="Ask about the document">
+      <div class="panel-head">
+        <span class="panel-tag">CONSOLE</span>
+        <span class="panel-meta">ask the document</span>
+      </div>
+      <div class="chat-log" id="document-chat-log">
+        <p class="chat-hint" id="document-chat-hint">Ask something about the document.</p>
+      </div>
+      <form id="document-chat-form" class="chat-input-row" autocomplete="off">
+        <span class="prompt-glyph" aria-hidden="true">&gt;</span>
+        <label for="document-chat-question" class="visually-hidden">Your question</label>
+        <input id="document-chat-question" type="text" placeholder="What is this document about?" required />
+        <button type="submit" class="btn-ghost">Ask</button>
+      </form>
+    </section>
+  </section>
+
+  <section id="view-youtube" class="view" hidden>
+    <button type="button" class="back-link" data-back>&larr; Back</button>
+    <header class="hero">
+      <h1 class="hero-title">YouTube link</h1>
+      <p class="hero-sub">Drop in a YouTube URL. It's pulled apart into audio, spoken into text, boiled down to a summary, and indexed so you can ask it questions directly.</p>
+    </header>
+
+    <form id="youtube-form" class="deck" autocomplete="off">
       <label for="youtube-url" class="visually-hidden">YouTube URL</label>
       <div class="deck-slot">
         <span class="deck-icon" aria-hidden="true">▶</span>
@@ -38,87 +225,83 @@
         />
       </div>
       <label for="youtube-language" class="visually-hidden">Spoken language</label>
-      <select
-        id="audio-language" name="language" class="lang-select"
-      >
+      <select id="youtube-language" name="language" class="lang-select">
         <option value="english">English</option>
-        <option value="hindi">Hindi → translate to English</option>
+        <option value="hindi">Hindi &rarr; translate to English</option>
       </select>
-      <button type="submit" id="analyze-btn" class="btn-primary">
+      <button type="submit" id="youtube-analyze-btn" class="btn-primary">
         <span class="btn-label">Analyze</span>
       </button>
     </form>
 
-    <form id="audio-form" class="deck" autocomplete="off" hidden>
-      <label for="audio-file" class="visually-hidden">Audio file</label>
-      <div class="deck-slot file-slot" id="file-slot">
-        <span class="deck-icon" aria-hidden="true">●</span>
-        <input
-          id="audio-file"
-          name="audio"
-          type="file"
-          accept=".mp3,.wav,.m4a,.webm,.ogg,.mp4,.flac,audio/*"
-          required
-        />
-        <span class="file-name" id="file-name">No file chosen — meeting, call, or any recording</span>
+    <p id="youtube-form-error" class="form-error" role="alert" hidden></p>
+
+    <section id="youtube-pipeline" class="pipeline" hidden aria-label="Processing status">
+      <div class="pipeline-track">
+        <div class="pipeline-fill" id="youtube-pipeline-fill"></div>
+        <ol class="pipeline-stops" id="youtube-pipeline-stops">
+          <li class="stop" data-stop="fetch"><span class="stop-dot"></span><span class="stop-label"><span class="stop-main">Fetch</span><br><span class="stop-sub">pulling audio</span></span></li>
+          <li class="stop" data-stop="convert"><span class="stop-dot"></span><span class="stop-label">Convert<br><span class="stop-sub">16kHz mono</span></span></li>
+          <li class="stop" data-stop="transcribe"><span class="stop-dot"></span><span class="stop-label">Transcribe<br><span class="stop-sub">speech to text</span></span></li>
+          <li class="stop" data-stop="summarize"><span class="stop-dot"></span><span class="stop-label">Summarize<br><span class="stop-sub">key points</span></span></li>
+          <li class="stop" data-stop="index"><span class="stop-dot"></span><span class="stop-label">Index<br><span class="stop-sub">ready for Q&amp;A</span></span></li>
+        </ol>
       </div>
-      <label for="audio-language" class="visually-hidden">Spoken language</label>
-      <select id="audio-language" name="language" class="lang-select">
-        <option value="english">English</option>
-        <option value="hindi">Hindi → translate to English</option>
-      </select>
-      <button type="submit" id="analyze-audio-btn" class="btn-primary">
-        <span class="btn-label">Analyze</span>
-      </button>
-    </form>
+      <div class="waveform" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <p class="pipeline-status" id="youtube-pipeline-status">Fetching audio&hellip;</p>
+    </section>
 
-    <p id="form-error" class="form-error" role="alert" hidden></p>
-  </header>
+    <section id="youtube-summary-panel" class="panel summary-panel" hidden aria-label="Summary">
+      <div class="panel-head">
+        <span class="panel-tag">SUMMARY</span>
+        <span class="panel-meta" id="youtube-id-tag"></span>
+      </div>
+      <div class="summary-body" id="youtube-summary-body"></div>
+    </section>
 
-  <section id="pipeline" class="pipeline" hidden aria-label="Processing status">
-    <div class="pipeline-track">
-      <div class="pipeline-fill" id="pipeline-fill"></div>
-      <ol class="pipeline-stops" id="pipeline-stops">
-        <li class="stop" data-stop="fetch"><span class="stop-dot"></span><span class="stop-label"><span class="stop-main">Fetch</span><br><span class="stop-sub">pulling audio</span></span></li>
-        <li class="stop" data-stop="convert"><span class="stop-dot"></span><span class="stop-label">Convert<br><span class="stop-sub">16kHz mono</span></span></li>
-        <li class="stop" data-stop="transcribe"><span class="stop-dot"></span><span class="stop-label">Transcribe<br><span class="stop-sub">speech to text</span></span></li>
-        <li class="stop" data-stop="summarize"><span class="stop-dot"></span><span class="stop-label">Summarize<br><span class="stop-sub">key points</span></span></li>
-        <li class="stop" data-stop="index"><span class="stop-dot"></span><span class="stop-label">Index<br><span class="stop-sub">ready for Q&A</span></span></li>
-      </ol>
-    </div>
-
-    <div class="waveform" id="waveform" aria-hidden="true">
-      <span></span><span></span><span></span><span></span><span></span>
-      <span></span><span></span><span></span><span></span><span></span>
-      <span></span><span></span><span></span><span></span><span></span>
-    </div>
-    <p class="pipeline-status" id="pipeline-status">Fetching audio…</p>
+    <section id="youtube-chat-panel" class="panel chat-panel" hidden aria-label="Ask about the video">
+      <div class="panel-head">
+        <span class="panel-tag">CONSOLE</span>
+        <span class="panel-meta">ask the transcript</span>
+      </div>
+      <div class="chat-log" id="youtube-chat-log">
+        <p class="chat-hint" id="youtube-chat-hint">Ask something about the video — answers come only from what was actually said.</p>
+      </div>
+      <form id="youtube-chat-form" class="chat-input-row" autocomplete="off">
+        <span class="prompt-glyph" aria-hidden="true">&gt;</span>
+        <label for="youtube-chat-question" class="visually-hidden">Your question</label>
+        <input id="youtube-chat-question" type="text" placeholder="What is this video about?" required />
+        <button type="submit" class="btn-ghost">Ask</button>
+      </form>
+    </section>
   </section>
 
-  <section id="summary-panel" class="panel summary-panel" hidden aria-label="Summary">
-    <div class="panel-head">
-      <span class="panel-tag">SUMMARY</span>
-      <span class="panel-meta" id="video-id-tag"></span>
-    </div>
-    <div class="summary-body" id="summary-body"></div>
-  </section>
+  <section id="view-chatbot" class="view" hidden>
+    <button type="button" class="back-link" data-back>&larr; Back</button>
+    <header class="hero">
+      <h1 class="hero-title">Just chat</h1>
+      <p class="hero-sub">A plain conversation with the AI — no document, no video, just talk.</p>
+    </header>
 
-  <section id="chat-panel" class="panel chat-panel" hidden aria-label="Ask about the video">
-    <div class="panel-head">
-      <span class="panel-tag">CONSOLE</span>
-      <span class="panel-meta">ask the transcript</span>
-    </div>
-
-    <div class="chat-log" id="chat-log">
-      <p class="chat-hint" id="chat-hint">Ask something about the video — answers come only from what was actually said.</p>
-    </div>
-
-    <form id="chat-form" class="chat-input-row" autocomplete="off">
-      <span class="prompt-glyph" aria-hidden="true">&gt;</span>
-      <label for="chat-question" class="visually-hidden">Your question</label>
-      <input id="chat-question" type="text" placeholder="What is this video about?" required />
-      <button type="submit" class="btn-ghost">Ask</button>
-    </form>
+    <section class="panel chat-panel" aria-label="Chat">
+      <div class="panel-head">
+        <span class="panel-tag">CONSOLE</span>
+        <span class="panel-meta">general chat</span>
+      </div>
+      <div class="chat-log" id="chatbot-chat-log">
+        <p class="chat-hint" id="chatbot-chat-hint">Say something to get started.</p>
+      </div>
+      <form id="chatbot-chat-form" class="chat-input-row" autocomplete="off">
+        <span class="prompt-glyph" aria-hidden="true">&gt;</span>
+        <label for="chatbot-chat-question" class="visually-hidden">Your message</label>
+        <input id="chatbot-chat-question" type="text" placeholder="Ask me anything" required />
+        <button type="submit" class="btn-ghost">Send</button>
+      </form>
+    </section>
   </section>
 
 </main>

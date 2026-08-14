@@ -4,11 +4,6 @@ const { transcribe } = require("./transcribe");
 const { getYoutubeCaptions } = require("./captions");
 
 async function extractAudio(url, language = "english") {
-  // 1. Try existing YouTube captions first. This avoids downloading
-  // audio entirely, is much faster/cheaper, and - importantly - hits a
-  // far lighter YouTube endpoint than resolving playable audio formats,
-  // so it's much less likely to trip "Sign in to confirm you're not a
-  // bot" on a datacenter IP.
   try {
     const captionText = await getYoutubeCaptions(url, language);
     if (captionText) {
@@ -24,9 +19,6 @@ async function extractAudio(url, language = "english") {
     );
   }
 
-  // 2. Fall back: download audio and transcribe with Whisper (the
-  // original pipeline). This is the path that needs cookies and is
-  // subject to YouTube's bot detection.
   const inputPath = await downloadYoutubeAudio(url);
   const result = await convertTo16kHz(inputPath);
   const chunks = await chunkAudio(result);

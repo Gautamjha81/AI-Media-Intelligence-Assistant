@@ -7,24 +7,25 @@ const llm = new ChatOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
   maxTokens: 450,
 });
-exports.finalSummary = async (initialSummary) => {
- 
-    const aiMsg = await llm.invoke([
+exports.initialMeetingSummary = async (chunks) => {
+     const array=[];
+    for(const chunk of chunks){
+      const aiMsg = await llm.invoke([
       {
         role: "system",
         content:`
-Create a concise meeting summary from these partial summaries, organized
-under three short headers: Key Decisions, Action Items (include owner and
-deadline if mentioned), and Open Questions. Keep it tight - 10-15 bullets
-total maximum across all sections, one line each. Remove repetition by
-merging overlapping points from different chunks. Do not invent information.
+        Create a concise meeting summary from these partial summaries.
+Include key points, decisions, action items, owners, deadlines,
+and unresolved questions. Remove repetition. Do not invent information
 `,
       },
       {
         role: "user",
-        content: initialSummary,
+        content: chunk,
       },
     ]);
+    array.push(aiMsg.content)
+    }
    
-  return aiMsg.content;
+  return array.join("");
 };

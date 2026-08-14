@@ -164,7 +164,7 @@
       pipelineFill.style.width = "0%";
     }
 
-    function completePipeline(success, message) {
+    function completePipeline(success, message, tone) {
       if (success) {
         stopEls.forEach((el) => el.classList.add("done"));
         stopEls.forEach((el) => el.classList.remove("active"));
@@ -172,7 +172,7 @@
         pipelineStatus.textContent = message || "Ready.";
       } else {
         pipelineStatus.textContent = message || "Something went wrong.";
-        pipelineStatus.style.color = "var(--red)";
+        pipelineStatus.style.color = tone === "notice" ? "var(--amber)" : "var(--red)";
       }
     }
 
@@ -203,7 +203,11 @@
       try {
         const res = await buildRequest();
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to process.");
+        if (!res.ok) {
+          const err = new Error(data.error || "Failed to process.");
+          err.code = data.code;
+          throw err;
+        }
 
         sessionId = data.videoId;
         pipelineSettled = true;
@@ -218,9 +222,18 @@
         if (onSuccess) onSuccess(data);
       } catch (err) {
         pipelineSettled = true;
-        completePipeline(false, err.message);
-        formError.textContent = err.message;
-        formError.hidden = false;
+
+        if (err.code === "YOUTUBE_BOT_CHECK") {
+          completePipeline(false, "YouTube is blocking automated downloads right now.", "notice");
+          formError.textContent = err.message;
+          formError.className = "form-notice";
+          formError.hidden = false;
+        } else {
+          completePipeline(false, err.message);
+          formError.textContent = err.message;
+          formError.className = "form-error";
+          formError.hidden = false;
+        }
       } finally {
         submitBtn.disabled = false;
       }

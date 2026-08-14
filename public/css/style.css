@@ -246,6 +246,19 @@ body{
   color: var(--red);
 }
 
+.form-notice{
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--amber);
+  border-left: 3px solid var(--amber);
+  border-radius: var(--radius);
+  background: rgba(231, 163, 62, 0.08);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--amber);
+}
+
 .pipeline{
   margin-top: 56px;
   padding: 32px 4px 8px;

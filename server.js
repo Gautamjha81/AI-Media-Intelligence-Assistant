@@ -151,6 +151,14 @@ app.post("/api/process", async (req, res) => {
     });
   } catch (error) {
     console.error("Error processing video:", error);
+
+    if (error.code === "YOUTUBE_BOT_CHECK") {
+      return res.status(503).json({
+        error: error.message,
+        code: "YOUTUBE_BOT_CHECK",
+      });
+    }
+
     return res.status(500).json({
       error: "Failed to process video",
       details: error.message,

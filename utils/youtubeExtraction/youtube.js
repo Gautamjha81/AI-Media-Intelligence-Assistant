@@ -9,7 +9,7 @@ const PLAYER_CLIENTS = ["web_safari", "android", "tv"];
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const SARCASTIC_BOT_CHECK_MESSAGE =
-    "Youtube has increased their bot security but we are trying our best to bypass that, still you can use other features of this application";
+    "YouTube has ramped up its bot protection, and our developers are already working on a way around it 🔧 In the meantime, every other feature — meeting audio, documents, and chat — is working perfectly, so please give those a try!";
 
 exports.downloadYoutubeAudio = async (url) => {
     const outputDir = path.join(__dirname, "../uploads");
